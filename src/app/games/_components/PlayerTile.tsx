@@ -22,7 +22,7 @@ export default function PlayerTile({ playerIndex }: TProps) {
     <div className={className.join(" ")}>
       Player {playerIndex} life: {lifeTotal}
       <button
-        className={`bg-rose-500 text-rose-900 rounded-sm px-4 py-0.5`}
+        className={`bg-slate-500 text-slate-900 rounded-lg px-4 py-0.5`}
         onClick={onClick}
       >
         Decrement
