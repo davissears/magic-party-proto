@@ -56,9 +56,10 @@ function pointerAngle(
 type TProps = {
   player: Player;
   dispatchAction: Dispatch<Action>;
+  onApply?: () => void;
 };
 
-export default function PlayerLife({ player, dispatchAction }: TProps) {
+export default function LifeDial({ player, dispatchAction, onApply }: TProps) {
   const [delta, setDelta] = useState(0);
   const isDragging = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -106,6 +107,7 @@ export default function PlayerLife({ player, dispatchAction }: TProps) {
     dispatchAction({ type: "ADJUST_LIFE", playerId: player.id, delta });
     setDelta(0);
     accumulatedDegRef.current = 0;
+    onApply?.();
   }
 
   // handle position follows rotation freely — modulo 360 so it laps the dial.
