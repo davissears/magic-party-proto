@@ -1,23 +1,25 @@
-type Player = {
+// state types
+export type Player = {
   id: number;
   displayName: string;
   life: number;
   commanderDamage: Record<string, number>;
+  poison: number;
   color: string; // for player color
 };
 
-type gameSession = {
+export type GameSession = {
   id: string;
   startTime: Date;
   players: Player[];
-  startingLife: string;
+  startingLife: number;
   gameEvents: GameEvent[];
 };
 
-type GameEvent = {
+export type GameEvent = {
   type: "gainLife" | "loseLife" | "commander_damage";
   timestamp: Date;
-  source: number & string; //player Id
-  target: number & string; //target player Id (optional)
-  damage: number; //damage amount (optional)
+  source: number; //player Id
+  target: number; //target player Id (optional)
+  value: number;
 };
