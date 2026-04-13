@@ -1,9 +1,9 @@
 // game_value; value = id
 const GAME_ABCD = {
-  player0Life: 20,
-  player1Life: 20,
-  player2Life: 20,
-  player3Life: 20,
+  player0Life: 40,
+  player1Life: 40,
+  player2Life: 40,
+  player3Life: 40,
 };
 //
 export type TPlayerNumber = 0 | 1 | 2 | 3;
