@@ -5,7 +5,7 @@ export default function Dashboard() {
   return (
     <div>
       <h1>dashboard</h1>
-      <div>
+      <div className="flex flex-row gap-4 h-[20vh] w-full">
         <Rivalboard />
         <Rivalboard />
         <Rivalboard />
