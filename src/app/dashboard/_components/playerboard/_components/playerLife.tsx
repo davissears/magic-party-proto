@@ -6,17 +6,12 @@ import { type Dispatch } from "react";
 import { type Player } from "@/lib/state";
 import { type Action } from "@/lib/session";
 
-const MAX_DELTA = 20;
+// degrees of rotation per 1 life point.
+const DEG_PER_LIFE = 18;
 const TRACK_RADIUS = 80;
 // canvas size: diameter + 40px padding to prevent clipping.
 const SVG_SIZE = TRACK_RADIUS * 2 + 40;
 const CENTER = SVG_SIZE / 2;
-
-
-// maps delta (-MAX_DELTA..+MAX_DELTA) to degrees (0° = top, ±180° = bottom).
-function deltaToAngleDeg(delta: number): number {
-  return (delta / MAX_DELTA) * 180;
-}
 
 // converts degrees (0° = top, clockwise) to an [x, y] point on the track circle.
 function angleDegToPoint(angleDeg: number): [number, number] {
@@ -28,14 +23,34 @@ function angleDegToPoint(angleDeg: number): [number, number] {
   ];
 }
 
-// builds an svg arc from 12 o'clock to the handle position; empty string at delta 0.
+// builds an svg arc from 12 o'clock to the handle position within the current revolution.
+// Returns empty string when delta is 0 or exactly on a full-revolution boundary (handled by full-circle element).
 function buildArcPath(delta: number): string {
   if (delta === 0) return "";
-  const angleDeg = deltaToAngleDeg(delta);
-  const [x, y] = angleDegToPoint(angleDeg);
-  const largeArcFlag = Math.abs(angleDeg) > 180 ? 1 : 0;
+  const totalDeg = delta * DEG_PER_LIFE;
+  // arc angle within the current revolution (0..360).
+  const arcDeg = Math.abs(totalDeg) % 360;
+  // at a full revolution boundary the full-circle element handles display.
+  if (arcDeg === 0) return "";
+  const signedArcDeg = delta > 0 ? arcDeg : -arcDeg;
+  const [x, y] = angleDegToPoint(signedArcDeg);
+  const largeArcFlag = arcDeg > 180 ? 1 : 0;
   const sweepFlag = delta > 0 ? 1 : 0;
   return `M ${CENTER} ${CENTER - TRACK_RADIUS} A ${TRACK_RADIUS} ${TRACK_RADIUS} 0 ${largeArcFlag} ${sweepFlag} ${x} ${y}`;
+}
+
+// returns the pointer's angle (in degrees) relative to the dial center.
+function pointerAngle(
+  svg: SVGSVGElement,
+  clientX: number,
+  clientY: number
+): number {
+  const rect = svg.getBoundingClientRect();
+  const scaleX = SVG_SIZE / rect.width;
+  const scaleY = SVG_SIZE / rect.height;
+  const dx = (clientX - rect.left) * scaleX - CENTER;
+  const dy = (clientY - rect.top) * scaleY - CENTER;
+  return Math.atan2(dy, dx) * (180 / Math.PI);
 }
 
 type TProps = {
@@ -45,41 +60,41 @@ type TProps = {
 
 export default function PlayerLife({ player, dispatchAction }: TProps) {
   const [delta, setDelta] = useState(0);
-  // ref instead of state — changes shouldn't trigger re-renders.
   const isDragging = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
-
-  // converts screen pointer coordinates to a delta value on the dial.
-  function pointerToDelta(clientX: number, clientY: number): number {
-    const svg = svgRef.current;
-    if (!svg) return 0;
-
-    const rect = svg.getBoundingClientRect();
-    // scale pointer coords to svg units in case the element is rendered at a different size.
-    const scaleX = SVG_SIZE / rect.width;
-    const scaleY = SVG_SIZE / rect.height;
-
-    const dx = (clientX - rect.left) * scaleX - CENTER;
-    const dy = (clientY - rect.top) * scaleY - CENTER;
-
-    // +90° rotates so 0° = top; normalize to -180°..+180° so left half = negative.
-    let angleDeg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
-    if (angleDeg > 180) angleDeg -= 360;
-
-    const raw = (angleDeg / 180) * MAX_DELTA;
-    return Math.round(Math.max(-MAX_DELTA, Math.min(MAX_DELTA, raw)));
-  }
+  // tracks last frame's angle so we can compute incremental rotation.
+  const lastAngleRef = useRef(0);
+  // accumulated rotation in degrees since drag started.
+  const accumulatedDegRef = useRef(0);
 
   function handlePointerDown(e: React.PointerEvent<SVGSVGElement>) {
     isDragging.current = true;
-    // pointer capture keeps events coming even if the pointer leaves the svg.
     e.currentTarget.setPointerCapture(e.pointerId);
-    setDelta(pointerToDelta(e.clientX, e.clientY));
+    if (svgRef.current) {
+      lastAngleRef.current = pointerAngle(svgRef.current, e.clientX, e.clientY);
+    }
+    accumulatedDegRef.current = 0;
+    setDelta(0);
   }
 
   function handlePointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (!isDragging.current) return;
-    setDelta(pointerToDelta(e.clientX, e.clientY));
+    if (!isDragging.current || !svgRef.current) return;
+
+    const currentAngle = pointerAngle(svgRef.current, e.clientX, e.clientY);
+
+    // frame-to-frame angular change; normalize to -180..180 to handle the
+    // ±180° wrap in atan2 without flipping sign.
+    let diff = currentAngle - lastAngleRef.current;
+    if (diff > 180) diff -= 360;
+    if (diff < -180) diff += 360;
+
+    accumulatedDegRef.current += diff;
+    lastAngleRef.current = currentAngle;
+
+    // clockwise rotation → positive delta, counterclockwise → negative.
+    // No cap — any number of rotations accumulates correctly.
+    const newDelta = Math.round(accumulatedDegRef.current / DEG_PER_LIFE);
+    setDelta(newDelta);
   }
 
   function handlePointerUp() {
@@ -90,11 +105,17 @@ export default function PlayerLife({ player, dispatchAction }: TProps) {
     if (delta === 0) return;
     dispatchAction({ type: "ADJUST_LIFE", playerId: player.id, delta });
     setDelta(0);
+    accumulatedDegRef.current = 0;
   }
 
-  const angleDeg = deltaToAngleDeg(delta);
-  const [handleX, handleY] = angleDegToPoint(angleDeg);
+  // handle position follows rotation freely — modulo 360 so it laps the dial.
+  const totalDeg = delta * DEG_PER_LIFE;
+  const arcDeg = Math.abs(totalDeg) % 360;
+  const handleDeg = delta >= 0 ? arcDeg : -arcDeg;
+  const [handleX, handleY] = angleDegToPoint(handleDeg);
   const arcPath = buildArcPath(delta);
+  // show a full colored ring when the handle is exactly on a revolution boundary.
+  const showFullCircle = delta !== 0 && arcDeg === 0;
   // green = gain, red = lose — standard MTG convention.
   const arcColor = delta >= 0 ? "#16a34a" : "#dc2626"; // tailwind green-600 / red-600
 
@@ -109,7 +130,7 @@ export default function PlayerLife({ player, dispatchAction }: TProps) {
         width={SVG_SIZE}
         height={SVG_SIZE}
         viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-        className="touch-none cursor-grab active:cursor-grabbing"
+        className="touch-none select-none cursor-grab active:cursor-grabbing"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -126,6 +147,16 @@ export default function PlayerLife({ player, dispatchAction }: TProps) {
         />
 
         {/* colored arc from 12 o'clock to handle; green = gain, red = lose. */}
+        {showFullCircle && (
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r={TRACK_RADIUS}
+            fill="none"
+            stroke={arcColor}
+            strokeWidth={12}
+          />
+        )}
         {arcPath && (
           <path
             d={arcPath}
