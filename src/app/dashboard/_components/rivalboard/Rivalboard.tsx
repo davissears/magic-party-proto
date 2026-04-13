@@ -31,6 +31,7 @@ export default function Rivalboard({ player, dispatchAction }: TProps) {
           player={player}
           dispatchAction={dispatchAction}
           onApply={() => setShowDial(false)}
+          compact
         />
       )}
     </div>

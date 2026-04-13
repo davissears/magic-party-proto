@@ -20,7 +20,7 @@ export default function Dashboard() {
     <div>
       <h1>dashboard</h1>
 
-      <div className="flex flex-row gap-4 h-[20vh] w-full px-4">
+      <div className="flex flex-row gap-4 min-h-[20vh] w-full px-4 items-start">
         {rivals.map(rival => (
           <Rivalboard key={rival.id} player={rival} dispatchAction={dispatch} />
         ))}

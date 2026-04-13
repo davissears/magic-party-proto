@@ -57,9 +57,11 @@ type TProps = {
   player: Player;
   dispatchAction: Dispatch<Action>;
   onApply?: () => void;
+  // compact: renders the SVG at half size and hides the redundant life total.
+  compact?: boolean;
 };
 
-export default function LifeDial({ player, dispatchAction, onApply }: TProps) {
+export default function LifeDial({ player, dispatchAction, onApply, compact = false }: TProps) {
   const [delta, setDelta] = useState(0);
   const isDragging = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -121,16 +123,18 @@ export default function LifeDial({ player, dispatchAction, onApply }: TProps) {
   // green = gain, red = lose — standard MTG convention.
   const arcColor = delta >= 0 ? "#16a34a" : "#dc2626"; // tailwind green-600 / red-600
 
+  const renderedSize = compact ? SVG_SIZE * 0.6 : SVG_SIZE;
+
   return (
-    <div className="flex flex-col items-center gap-4 p-4">
-      {/* confirmed life total — only updates on apply, not during drag. */}
-      <span className="text-6xl font-bold">{player.life}</span>
+    <div className="flex flex-col items-center gap-2 p-2">
+      {/* confirmed life total — hidden in compact mode since the host already shows it. */}
+      {!compact && <span className="text-6xl font-bold">{player.life}</span>}
 
       {/* touch-none prevents the browser treating a drag as a page scroll. */}
       <svg
         ref={svgRef}
-        width={SVG_SIZE}
-        height={SVG_SIZE}
+        width={renderedSize}
+        height={renderedSize}
         viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
         className="touch-none select-none cursor-grab active:cursor-grabbing"
         onPointerDown={handlePointerDown}
@@ -196,7 +200,7 @@ export default function LifeDial({ player, dispatchAction, onApply }: TProps) {
       <button
         onClick={handleApply}
         disabled={delta === 0}
-        className="w-32 py-2 rounded-lg text-white font-semibold transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+        className={`${compact ? "w-24 py-1 text-sm" : "w-32 py-2"} rounded-lg text-white font-semibold transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed`}
         style={{ backgroundColor: delta === 0 ? undefined : arcColor }}
       >
         Apply
