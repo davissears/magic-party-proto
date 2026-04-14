@@ -1,8 +1,9 @@
 "use client";
 
+// displays a rival player's life total and a compact dial to deal them damage.
 import { useState, type Dispatch } from "react";
-import { type Player } from "@/lib/state";
-import { type Action } from "@/lib/session";
+import { type Player } from "@/lib/game";
+import { type Action } from "@/lib/game";
 import LifeDial from "../LifeDial";
 
 type TProps = {
@@ -11,6 +12,7 @@ type TProps = {
 };
 
 export default function Rivalboard({ player, dispatchAction }: TProps) {
+  // controls whether the compact damage dial is visible for this rival.
   const [showDial, setShowDial] = useState(false);
 
   const isLowLife = player.life < 10;
@@ -26,6 +28,7 @@ export default function Rivalboard({ player, dispatchAction }: TProps) {
       >
         {showDial ? "Cancel" : "Deal Damage"}
       </button>
+      {/* the compact dial closes itself after apply via the onApply callback. */}
       {showDial && (
         <LifeDial
           player={player}

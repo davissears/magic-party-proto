@@ -1,7 +1,7 @@
-// Thin wrapper — delegates life display and controls to PlayerLife.
+// displays the local player's life total and their full-size life dial.
 import { type Dispatch } from "react";
-import { type Player } from "@/lib/state";
-import { type Action } from "@/lib/session";
+import { type Player } from "@/lib/game";
+import { type Action } from "@/lib/game";
 import LifeDial from "../LifeDial";
 
 type TProps = {
